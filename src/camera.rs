@@ -1,13 +1,13 @@
+use winit::event::*;
 
-
-struct Camera {
-    eye: cgmath::Point3<f32>,
-    target: cgmath::Point3<f32>,
-    up: cgmath::Vector3<f32>,
-    aspect: f32,
-    fovy: f32,
-    znear: f32,
-    zfar: f32,
+pub struct Camera {
+    pub eye: cgmath::Point3<f32>,
+    pub target: cgmath::Point3<f32>,
+    pub up: cgmath::Vector3<f32>,
+    pub aspect: f32,
+    pub fovy: f32,
+    pub znear: f32,
+    pub zfar: f32,
 }
 
 #[rustfmt::skip]
@@ -28,28 +28,29 @@ impl Camera {
     }
 }
 
-struct CameraUniform {
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CameraUniform {
     // cgmath & bytemuck don't work together
     // So convert mat4 to a 4v4 f32 array
-    view_proj: [[f32; 4] 4];
+    view_proj: [[f32; 4]; 4],
 }
 
-use cgmath::SquareMatrix;
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
+use cgmath::*;
 
 impl CameraUniform {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             view_proj: cgmath::Matrix4::identity().into(),
         }
     }
 
-    fn update_view_proj(&mut self, camera: &Camera) {
+    pub fn update_view_proj(&mut self, camera: &Camera) {
         self.view_proj = camera.build_view_projection_matrix().into();
     }
 }
 
-struct CameraController {
+pub struct CameraController {
     speed: f32,
     is_up_pressed: bool,
     is_down_pressed: bool,
@@ -60,7 +61,7 @@ struct CameraController {
 }
 
 impl CameraController {
-    fn new(speed: f32) -> Self {
+    pub(crate) fn new(speed: f32) -> Self {
         Self {
             speed,
             is_up_pressed: false,
@@ -72,27 +73,28 @@ impl CameraController {
         }
     }
 
-    fn process_events(&mut self, event: &WindowEvent) -> bool {
+    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state,
-                    virtual_keycode: Some(keycode),
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        state,
+                        virtual_keycode: Some(keycode),
+                        ..
+                    },
                 ..
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
-                    VirtualKeycode::Space => {
-                        self.is_up_pressed= is_pressed;
+                    VirtualKeyCode::Space => {
+                        self.is_up_pressed = is_pressed;
                         true
                     }
-                    VirtualKeycode::LShift => {
+                    VirtualKeyCode::LShift => {
                         self.is_down_pressed = is_pressed;
                         true
                     }
-                    VirtualKeycode::W | VirtualKeycode::Up => {
+                    VirtualKeyCode::W | VirtualKeyCode::Up => {
                         self.is_forward_pressed = is_pressed;
                         true
                     }
@@ -112,6 +114,37 @@ impl CameraController {
                 }
             }
             _ => false,
+        }
+    }
+
+    pub fn update_camera(&self, camera: &mut Camera) {
+        let forward = camera.target - camera.eye;
+        let forward_norm = forward.normalize();
+        let forward_mag = forward.magnitude();
+
+        // Prevents glitching when camera gets too close to the
+        // center of the scene.
+        if self.is_forward_pressed && forward_mag > self.speed {
+            camera.eye += forward_norm * self.speed;
+        }
+        if self.is_backward_pressed {
+            camera.eye -= forward_norm * self.speed;
+        }
+
+        let right = forward_norm.cross(camera.up);
+
+        // Redo radius calc in case the up/ down is pressed.
+        let forward = camera.target - camera.eye;
+        let forward_mag = forward.magnitude();
+
+        if self.is_right_pressed {
+            // Rescale the distance between the target and eye so
+            // that it doesn't change. The eye therefore still
+            // lies on the circle made by the target and eye.
+            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+        }
+        if self.is_left_pressed {
+            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
         }
     }
 }
