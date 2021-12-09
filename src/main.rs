@@ -10,6 +10,9 @@ use crate::celestial_body::{DrawSphere, Vertex};
 
 mod texture;
 mod celestial_body;
+mod state;
+mod camera;
+mod gfx;
 
 struct Camera {
     eye: cgmath::Point3<f32>,
