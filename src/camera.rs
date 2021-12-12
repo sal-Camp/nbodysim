@@ -19,6 +19,25 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 );
 
 impl Camera {
+    pub fn new(wgpu::SurfaceConfiguration: &config) -> Self {
+        let eye = (0.0, 1.0, 2.0).into();
+        let target = (0.0, 0.0, 0.0).into();
+        let up = cgmath::Vector3::unit_y();
+        let aspect = config.width as f32 / config.height as f32;
+        let fovy = 45.0;
+        let znear = 0.1;
+        let zfar = 100.0;
+
+        Self {
+            eye,
+            target,
+            up,
+            aspect,
+            fovy,
+            znear,
+            zfar,
+        }
+    }
     fn build_view_projection_matrix(&self) -> cgmath::Matrix4<f32> {
         // View moves the world to be at the position and rotation of the camera
         let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);

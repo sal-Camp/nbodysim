@@ -10,8 +10,8 @@ use winit::{
 
 mod camera;
 mod celestial_body;
-mod gfx;
 mod instance;
+mod render;
 mod state;
 mod texture;
 
@@ -309,7 +309,7 @@ impl State {
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        // Store a surface texture to render to
+        // Store a surface texture to Render to
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
