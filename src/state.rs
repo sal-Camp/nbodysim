@@ -1,5 +1,6 @@
-use crate::{camera, render};
+use crate::{camera, render, texture, DrawSphere};
 use wgpu::*;
+use winit::event::WindowEvent;
 use winit::window::Window;
 use winit::*;
 
@@ -10,11 +11,11 @@ pub struct State {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
-    pub gfx: render::Render,
+    pub renderer: render::Render,
 }
 
 impl State {
-    async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
         // An instance is a handle to our GPU
@@ -53,8 +54,9 @@ impl State {
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
         };
+        surface.configure(&device, &config);
 
-        let gfx = render::Render::new(&device, &config);
+        let renderer = render::Render::new(&device, &config);
 
         Self {
             size,
@@ -63,7 +65,102 @@ impl State {
             device,
             queue,
             config,
-            gfx,
+            renderer,
         }
+    }
+
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        if new_size.width > 0 && new_size.height > 0 {
+            self.size = new_size;
+            self.config.width = new_size.width;
+            self.config.height = new_size.height;
+            self.renderer.depth_texture =
+                texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            self.surface.configure(&self.device, &self.config);
+        }
+    }
+
+    // A lot of the following functions (input, update, render) can probably also
+    // be refactored out to render.rs
+    // Will do in future update
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        self.renderer.camera_controller.process_events(event)
+    }
+
+    pub fn update(&mut self) {
+        self.renderer
+            .camera_controller
+            .update_camera(&mut self.renderer.camera);
+        self.renderer
+            .camera_uniform
+            .update_view_proj(&self.renderer.camera);
+        self.queue.write_buffer(
+            &self.renderer.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.renderer.camera_uniform]),
+        );
+    }
+
+    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        // Store a surface texture to Render to
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // A command encoder to create commands for the gpu
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            // Where we will draw our color to. In this case we will draw to view, our TextureView
+            color_attachments: &[
+                // [[location(0)]] in our fragment shader
+                wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    // The texture to receive the output. Don't need to specify, so left a None
+                    resolve_target: None,
+                    // Telling wgpu what to do with the colors
+                    ops: wgpu::Operations {
+                        // Loading the stored colors after clearing with a bluish color
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        // Store the results to the texture in TextureView
+                        store: true,
+                    },
+                },
+            ],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.renderer.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+        });
+
+        render_pass.set_vertex_buffer(1, self.renderer.instance_buffer.slice(..));
+        render_pass.set_pipeline(&self.renderer.render_pipeline);
+        render_pass.draw_sphere_instanced(
+            &self.renderer.sphere,
+            0..self.renderer.instances.len() as u32,
+            &self.renderer.camera_bind_group,
+        );
+
+        // Releasing the borrow on 'encoder'
+        drop(render_pass);
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+        Ok(())
     }
 }

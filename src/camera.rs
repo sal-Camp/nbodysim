@@ -19,11 +19,11 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 );
 
 impl Camera {
-    pub fn new(wgpu::SurfaceConfiguration: &config) -> Self {
+    pub fn new(width: f32, height: f32) -> Self {
         let eye = (0.0, 1.0, 2.0).into();
         let target = (0.0, 0.0, 0.0).into();
         let up = cgmath::Vector3::unit_y();
-        let aspect = config.width as f32 / config.height as f32;
+        let aspect = width as f32 / height as f32;
         let fovy = 45.0;
         let znear = 0.1;
         let zfar = 100.0;

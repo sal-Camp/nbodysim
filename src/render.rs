@@ -2,6 +2,7 @@ use crate::celestial_body;
 use crate::texture;
 use crate::{camera, instance, Vertex};
 use cgmath::*;
+use wgpu::util::DeviceExt;
 use wgpu::*;
 
 pub struct Render {
@@ -9,10 +10,14 @@ pub struct Render {
     pub render_pipeline: wgpu::RenderPipeline,
     pub instances: Vec<instance::Instance>,
     pub instance_buffer: wgpu::Buffer,
-    sphere: celestial_body::Sphere,
-    camera: camera::Camera,
-    camera_bind_group_layout: wgpu::BindGroupLayout,
-    camera_bind_group: wgpu::BindGroup,
+    pub depth_texture: texture::Texture,
+    pub sphere: celestial_body::Sphere,
+    pub camera: camera::Camera,
+    pub camera_controller: camera::CameraController,
+    pub camera_bind_group_layout: wgpu::BindGroupLayout,
+    pub camera_bind_group: wgpu::BindGroup,
+    pub camera_uniform: camera::CameraUniform,
+    pub camera_buffer: wgpu::Buffer,
 }
 
 // Temporary values until we Render more objects
@@ -25,38 +30,18 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
 );
 
 impl Render {
-    pub async fn new(wgpu::Device: &device, wgpu::SurfaceConfiguration: &config) -> Self {
+    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
+        let camera = camera::Camera::new(config.width as f32, config.height as f32);
 
-        const SPACE_BETWEEN: f32 = 3.0;
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+        let camera_controller = camera::CameraController::new(0.2);
 
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
+        let mut camera_uniform = camera::CameraUniform::new();
+        camera_uniform.update_view_proj(&camera);
 
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
-                    instance::Instance { position, rotation }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances
-            .iter()
-            .map(instance::Instance::to_raw)
-            .collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let camera_bind_group_layout =
@@ -85,25 +70,13 @@ impl Render {
 
         let sphere = celestial_body::Sphere::new(10, device).unwrap();
 
-        let bindings = BindGroups::new(device);
-
-        let camera = camera::Camera::new(config);
-
-        let camera_controller = camera::CameraController::new(0.2);
-
-        let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
         let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into());
+            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
+
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -157,15 +130,51 @@ impl Render {
             },
         });
 
+        const SPACE_BETWEEN: f32 = 3.0;
+        let instances = (0..NUM_INSTANCES_PER_ROW)
+            .flat_map(|z| {
+                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
+
+                    let rotation = if position.is_zero() {
+                        cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        )
+                    } else {
+                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                    };
+                    instance::Instance { position, rotation }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let instance_data = instances
+            .iter()
+            .map(instance::Instance::to_raw)
+            .collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         Self {
             render_pipeline_layout,
             render_pipeline,
             instances,
             instance_buffer,
+            depth_texture,
             sphere,
             camera,
+            camera_controller,
             camera_bind_group_layout,
             camera_bind_group,
+            camera_uniform,
+            camera_buffer,
         }
     }
 }
