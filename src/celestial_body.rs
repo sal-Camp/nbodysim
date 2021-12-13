@@ -2,19 +2,34 @@ use anyhow::Result;
 use cgmath::*;
 use std::ops::Range;
 use wgpu::util::DeviceExt;
-use wgpu::BindGroup;
+use anyhow::Result;
+use proc_macro::bridge::PanicMessage;
+use test::ShouldPanic;
 
-pub struct CelestialBody {
-    pub body: Sphere,
-    pub position: cgmath::Vector3<f32>,
+pub struct Entity {
+    pub sphere: Sphere,
+    pub position: Vector3<f32>,
 }
 
-impl CelestialBody {
-    pub fn new(new_position: cgmath::Vector3<f32>, device: &wgpu::Device) -> Self {
-        let body = Sphere::new(4, &device);
+impl Entity {
+    pub fn new(new_position: Vector3<f32>, device: &wgpu::Device) -> Self {
+
+        let sphere;
+        match Sphere::new(5, &device) {
+            Ok(sp) => {
+                sphere = sp;
+            },
+            Err(e) => {
+                Panic!(PanicMessage(e));
+            }
+        }
+
         let position = new_position;
 
-        Self { body, position }
+        Self {
+            sphere,
+            position,
+        }
     }
 }
 
