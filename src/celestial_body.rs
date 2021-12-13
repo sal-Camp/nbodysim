@@ -3,7 +3,35 @@ use cgmath::*;
 use wgpu::BindGroup;
 use wgpu::util::DeviceExt;
 use anyhow::Result;
+use proc_macro::bridge::PanicMessage;
+use test::ShouldPanic;
 
+pub struct Entity {
+    pub sphere: Sphere,
+    pub position: Vector3<f32>,
+}
+
+impl Entity {
+    pub fn new(new_position: Vector3<f32>, device: &wgpu::Device) -> Self {
+
+        let sphere;
+        match Sphere::new(5, &device) {
+            Ok(sp) => {
+                sphere = sp;
+            },
+            Err(e) => {
+                Panic!(PanicMessage(e));
+            }
+        }
+
+        let position = new_position;
+
+        Self {
+            sphere,
+            position,
+        }
+    }
+}
 
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;

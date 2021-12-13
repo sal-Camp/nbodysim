@@ -1,8 +1,9 @@
-use crate::{camera, render, texture, DrawSphere};
+use crate::{camera, render, texture, DrawSphere, celestial_body};
 use wgpu::*;
 use winit::event::WindowEvent;
 use winit::window::Window;
 use winit::*;
+use crate::celestial_body::Entity;
 
 pub struct State {
     pub instance: wgpu::Instance,
@@ -12,6 +13,7 @@ pub struct State {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub renderer: render::Render,
+    pub entities: Vec<celestial_body::Entity>,
 }
 
 impl State {
@@ -58,6 +60,9 @@ impl State {
 
         let renderer = render::Render::new(&device, &config);
 
+        let entities: Vec<celestial_body::Entity> = Vec::new();
+        let entity1 =
+
         Self {
             size,
             instance,
@@ -66,6 +71,7 @@ impl State {
             queue,
             config,
             renderer,
+            entities
         }
     }
 
@@ -150,9 +156,8 @@ impl State {
 
         render_pass.set_vertex_buffer(1, self.renderer.instance_buffer.slice(..));
         render_pass.set_pipeline(&self.renderer.render_pipeline);
-        render_pass.draw_sphere_instanced(
+        render_pass.draw_sphere(
             &self.renderer.sphere,
-            0..self.renderer.instances.len() as u32,
             &self.renderer.camera_bind_group,
         );
 
