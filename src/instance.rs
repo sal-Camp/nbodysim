@@ -1,3 +1,5 @@
+use cgmath::{InnerSpace, Rotation3, Vector3, Zero};
+
 pub struct Instance {
     pub position: cgmath::Vector3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
@@ -42,6 +44,18 @@ impl InstanceRaw {
 }
 
 impl Instance {
+    pub fn new(new_position: Vector3<f32>) -> Self {
+        let position = new_position;
+
+        let rotation = if position.is_zero() {
+            cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
+        } else {
+            cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+        };
+
+        Self { position, rotation }
+    }
+
     pub fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
             model: (cgmath::Matrix4::from_translation(self.position)

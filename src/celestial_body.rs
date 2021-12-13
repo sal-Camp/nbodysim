@@ -1,9 +1,22 @@
-use std::ops::Range;
-use cgmath::*;
-use wgpu::BindGroup;
-use wgpu::util::DeviceExt;
 use anyhow::Result;
+use cgmath::*;
+use std::ops::Range;
+use wgpu::util::DeviceExt;
+use wgpu::BindGroup;
 
+pub struct CelestialBody {
+    pub body: Sphere,
+    pub position: cgmath::Vector3<f32>,
+}
+
+impl CelestialBody {
+    pub fn new(new_position: cgmath::Vector3<f32>, device: &wgpu::Device) -> Self {
+        let body = Sphere::new(4, &device);
+        let position = new_position;
+
+        Self { body, position }
+    }
+}
 
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;
@@ -49,14 +62,9 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    fn new(
-        resolution: u32,
-        local_up: Vector3<f32>,
-        device: &wgpu::Device,
-    ) -> Self {
+    fn new(resolution: u32, local_up: Vector3<f32>, device: &wgpu::Device) -> Self {
         let axis_a = Vector3::new(local_up.y, local_up.z, local_up.x);
         let axis_b = Vector3::cross(local_up, axis_a);
-
 
         let mut vertices = Vec::new();
         let mut triangles = Vec::new();
@@ -64,23 +72,19 @@ impl Mesh {
             for y in 0..resolution {
                 let i = x + y * resolution;
                 let percent = Vector2::new(x as f32, y as f32) / (resolution - 1) as f32;
-                let point_on_unit_cube = local_up + (percent.x - 0.5) * 2.0 * axis_a + (percent.y - 0.5) * 2.0 * axis_b;
+                let point_on_unit_cube =
+                    local_up + (percent.x - 0.5) * 2.0 * axis_a + (percent.y - 0.5) * 2.0 * axis_b;
                 let point_on_unit_sphere = point_on_unit_cube.normalize();
-                vertices.push( SphereMeshVertex {
+                vertices.push(SphereMeshVertex {
                     position: [
                         point_on_unit_sphere.x,
                         point_on_unit_sphere.y,
                         point_on_unit_sphere.z,
                     ],
-                    color: [
-                        0.5,
-                        0.5,
-                        0.5,
-                    ]
+                    color: [0.5, 0.5, 0.5],
                 });
 
                 if x != resolution - 1 && y != resolution - 1 {
-
                     // First Triangle
                     triangles.push(i);
                     triangles.push(i + resolution + 1);
@@ -93,21 +97,17 @@ impl Mesh {
                 }
             }
         }
-        let vertex_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Mesh Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Mesh Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Mesh Index Buffer"),
-                contents: bytemuck::cast_slice(&triangles),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Mesh Index Buffer"),
+            contents: bytemuck::cast_slice(&triangles),
+            usage: wgpu::BufferUsages::INDEX,
+        });
 
         let num_elements = triangles.len() as u32;
 
@@ -124,12 +124,12 @@ impl Mesh {
 }
 
 const DIRECTIONS: [Vector3<f32>; 6] = [
-    Vector3::new(0.0, 1.0, 0.0),    // up
-    Vector3::new(0.0, -1.0, 0.0),   // down
-    Vector3::new(-1.0, 0.0, 0.0),   // left
-    Vector3::new(1.0, 0.0, 0.0),    // right
-    Vector3::new(0.0, 0.0, 1.0),    // forward
-    Vector3::new(0.0, 0.0, -1.0),   // back
+    Vector3::new(0.0, 1.0, 0.0),  // up
+    Vector3::new(0.0, -1.0, 0.0), // down
+    Vector3::new(-1.0, 0.0, 0.0), // left
+    Vector3::new(1.0, 0.0, 0.0),  // right
+    Vector3::new(0.0, 0.0, 1.0),  // forward
+    Vector3::new(0.0, 0.0, -1.0), // back
 ];
 
 pub struct Sphere {
@@ -137,40 +137,28 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(
-        resolution: u32,
-        device: &wgpu::Device,
-    ) -> Result<Self> {
-
+    pub fn new(resolution: u32, device: &wgpu::Device) -> Self {
         let mut meshes: Vec<Mesh> = Vec::with_capacity(6);
         // Creating our 6 faces of the cube/sphere
         for dir in DIRECTIONS {
             meshes.push(Mesh::new(resolution, dir, device));
         }
 
-        Ok(Self {meshes})
+        Self { meshes }
     }
 }
 
 pub trait DrawSphere<'a> {
-    fn draw_mesh(
-        &mut self,
-        mesh: &'a Mesh,
-        camera_bind_group: &'a wgpu::BindGroup
-    );
+    fn draw_mesh(&mut self, mesh: &'a Mesh, camera_bind_group: &'a wgpu::BindGroup);
 
-    fn draw_mesh_instanced (
+    fn draw_mesh_instanced(
         &mut self,
         mesh: &'a Mesh,
         instances: Range<u32>,
         camera_bind_group: &'a wgpu::BindGroup,
     );
 
-    fn draw_sphere(
-        &mut self,
-        sphere: &'a Sphere,
-        camera_bind_group: &'a wgpu::BindGroup,
-    );
+    fn draw_sphere(&mut self, sphere: &'a Sphere, camera_bind_group: &'a wgpu::BindGroup);
 
     fn draw_sphere_instanced(
         &mut self,
@@ -180,14 +168,11 @@ pub trait DrawSphere<'a> {
     );
 }
 
-impl <'a, 'b> DrawSphere<'b> for wgpu::RenderPass<'a>
-where 'b: 'a,
+impl<'a, 'b> DrawSphere<'b> for wgpu::RenderPass<'a>
+where
+    'b: 'a,
 {
-    fn draw_mesh(
-        &mut self,
-        mesh: &'b Mesh,
-        camera_bind_group: &'b BindGroup
-    ) {
+    fn draw_mesh(&mut self, mesh: &'b Mesh, camera_bind_group: &'b BindGroup) {
         self.draw_mesh_instanced(mesh, 0..1, camera_bind_group);
     }
 
@@ -195,7 +180,7 @@ where 'b: 'a,
         &mut self,
         mesh: &'b Mesh,
         instances: Range<u32>,
-        camera_bind_group: &'b BindGroup
+        camera_bind_group: &'b BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
@@ -203,11 +188,7 @@ where 'b: 'a,
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }
 
-    fn draw_sphere(
-        &mut self,
-        sphere: &'b Sphere,
-        camera_bind_group: &'b BindGroup
-    ) {
+    fn draw_sphere(&mut self, sphere: &'b Sphere, camera_bind_group: &'b BindGroup) {
         self.draw_sphere_instanced(sphere, 0..1, camera_bind_group);
     }
 
@@ -215,7 +196,7 @@ where 'b: 'a,
         &mut self,
         sphere: &'b Sphere,
         instances: Range<u32>,
-        camera_bind_group: &'b BindGroup
+        camera_bind_group: &'b BindGroup,
     ) {
         for mesh in &sphere.meshes {
             self.draw_mesh_instanced(mesh, instances.clone(), camera_bind_group);

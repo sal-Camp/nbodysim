@@ -155,6 +155,11 @@ impl State {
             0..self.renderer.instances.len() as u32,
             &self.renderer.camera_bind_group,
         );
+        render_pass.draw_sphere_instanced(
+            &self.renderer.sphere2,
+            0..self.renderer.instances.len() as u32,
+            &self.renderer.camera_bind_group,
+        );
 
         // Releasing the borrow on 'encoder'
         drop(render_pass);
