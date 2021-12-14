@@ -17,7 +17,6 @@ pollster = "0.2"
 bytemuck = { version = "1.7.2", features = ["derive"] }
 tobj = "3.0"
 anyhow = "1.0.45"
-nalgebra = "0.29.0"
 
 [build-dependencies]
 anyhow = "1.0.44"
