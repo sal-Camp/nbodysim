@@ -1,6 +1,6 @@
-use crate::sphere::{Entity, Sphere};
+use crate::sphere::{DrawLight, Entity, Sphere};
 use crate::{camera, render, sphere, texture, DrawSphere};
-use cgmath::Vector3;
+use cgmath::{Rotation3, Vector3};
 use wgpu::*;
 use winit::event::WindowEvent;
 use winit::window::Window;
@@ -101,6 +101,16 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.renderer.camera_uniform]),
         );
+        let old_position: cgmath::Vector3<_> = self.renderer.light_uniform.position.into();
+        self.renderer.light_uniform.position =
+            (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
+                * old_position)
+                .into();
+        self.queue.write_buffer(
+            &self.renderer.light_buffer,
+            0,
+            bytemuck::cast_slice(&[self.renderer.light_uniform]),
+        );
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -151,8 +161,21 @@ impl State {
         });
 
         render_pass.set_vertex_buffer(1, self.renderer.instance_buffer.slice(..));
+
+        use crate::sphere::DrawLight;
+        render_pass.set_pipeline(&self.renderer.light_render_pipeline);
+        render_pass.draw_light_model(
+            &self.renderer.sphere,
+            &self.renderer.camera_bind_group,
+            &self.renderer.light_bind_group,
+        );
+
         render_pass.set_pipeline(&self.renderer.render_pipeline);
-        render_pass.draw_sphere(&self.renderer.sphere, &self.renderer.camera_bind_group);
+        render_pass.draw_sphere(
+            &self.renderer.sphere,
+            &self.renderer.camera_bind_group,
+            &self.renderer.light_bind_group,
+        );
 
         // Releasing the borrow on 'encoder'
         drop(render_pass);

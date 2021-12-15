@@ -160,22 +160,34 @@ impl Sphere {
 }
 
 pub trait DrawSphere<'a> {
-    fn draw_mesh(&mut self, mesh: &'a Mesh, camera_bind_group: &'a wgpu::BindGroup);
+    fn draw_mesh(
+        &mut self,
+        mesh: &'a Mesh,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
 
     fn draw_mesh_instanced(
         &mut self,
         mesh: &'a Mesh,
         instances: Range<u32>,
         camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
     );
 
-    fn draw_sphere(&mut self, sphere: &'a Sphere, camera_bind_group: &'a wgpu::BindGroup);
+    fn draw_sphere(
+        &mut self,
+        sphere: &'a Sphere,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
 
     fn draw_sphere_instanced(
         &mut self,
         sphere: &'a Sphere,
         instances: Range<u32>,
         camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
     );
 }
 
@@ -183,8 +195,13 @@ impl<'a, 'b> DrawSphere<'b> for wgpu::RenderPass<'a>
 where
     'b: 'a,
 {
-    fn draw_mesh(&mut self, mesh: &'b Mesh, camera_bind_group: &'b BindGroup) {
-        self.draw_mesh_instanced(mesh, 0..1, camera_bind_group);
+    fn draw_mesh(
+        &mut self,
+        mesh: &'b Mesh,
+        camera_bind_group: &'b BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        self.draw_mesh_instanced(mesh, 0..1, camera_bind_group, light_bind_group);
     }
 
     fn draw_mesh_instanced(
@@ -192,15 +209,22 @@ where
         mesh: &'b Mesh,
         instances: Range<u32>,
         camera_bind_group: &'b BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         self.set_bind_group(0, &camera_bind_group, &[]);
+        self.set_bind_group(1, &light_bind_group, &[]);
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }
 
-    fn draw_sphere(&mut self, sphere: &'b Sphere, camera_bind_group: &'b BindGroup) {
-        self.draw_sphere_instanced(sphere, 0..1, camera_bind_group);
+    fn draw_sphere(
+        &mut self,
+        sphere: &'b Sphere,
+        camera_bind_group: &'b BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        self.draw_sphere_instanced(sphere, 0..1, camera_bind_group, light_bind_group);
     }
 
     fn draw_sphere_instanced(
@@ -208,9 +232,93 @@ where
         sphere: &'b Sphere,
         instances: Range<u32>,
         camera_bind_group: &'b BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
     ) {
         for mesh in &sphere.meshes {
-            self.draw_mesh_instanced(mesh, instances.clone(), camera_bind_group);
+            self.draw_mesh_instanced(mesh, instances.clone(), camera_bind_group, light_bind_group);
+        }
+    }
+}
+
+pub trait DrawLight<'a> {
+    fn draw_light_mesh(
+        &mut self,
+        mesh: &'a Mesh,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
+    fn draw_light_mesh_instanced(
+        &mut self,
+        mesh: &'a Mesh,
+        instances: Range<u32>,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
+
+    fn draw_light_model(
+        &mut self,
+        sphere: &'a Sphere,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
+    fn draw_light_model_instanced(
+        &mut self,
+        sphere: &'a Sphere,
+        instances: Range<u32>,
+        camera_bind_group: &'a wgpu::BindGroup,
+        light_bind_group: &'a wgpu::BindGroup,
+    );
+}
+
+impl<'a, 'b> DrawLight<'b> for wgpu::RenderPass<'a>
+where
+    'b: 'a,
+{
+    fn draw_light_mesh(
+        &mut self,
+        mesh: &'b Mesh,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        self.draw_light_mesh_instanced(mesh, 0..1, camera_bind_group, light_bind_group);
+    }
+
+    fn draw_light_mesh_instanced(
+        &mut self,
+        mesh: &'b Mesh,
+        instances: Range<u32>,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        self.set_bind_group(0, camera_bind_group, &[]);
+        self.set_bind_group(1, light_bind_group, &[]);
+        self.draw_indexed(0..mesh.num_elements, 0, instances);
+    }
+
+    fn draw_light_model(
+        &mut self,
+        sphere: &'b Sphere,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        self.draw_light_model_instanced(sphere, 0..1, camera_bind_group, light_bind_group);
+    }
+    fn draw_light_model_instanced(
+        &mut self,
+        sphere: &'b Sphere,
+        instances: Range<u32>,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        for mesh in &sphere.meshes {
+            self.draw_light_mesh_instanced(
+                mesh,
+                instances.clone(),
+                camera_bind_group,
+                light_bind_group,
+            );
         }
     }
 }
