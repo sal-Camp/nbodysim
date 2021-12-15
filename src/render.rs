@@ -1,4 +1,5 @@
-use crate::celestial_body;
+use crate::sphere;
+use crate::sphere::Entity;
 use crate::texture;
 use crate::{camera, instance, Vertex};
 use cgmath::*;
@@ -11,14 +12,13 @@ pub struct Render {
     pub instances: Vec<instance::Instance>,
     pub instance_buffer: wgpu::Buffer,
     pub depth_texture: texture::Texture,
-    pub sphere: celestial_body::Sphere,
-    pub sphere2: celestial_body::Sphere,
     pub camera: camera::Camera,
     pub camera_controller: camera::CameraController,
     pub camera_bind_group_layout: wgpu::BindGroupLayout,
     pub camera_bind_group: wgpu::BindGroup,
     pub camera_uniform: camera::CameraUniform,
     pub camera_buffer: wgpu::Buffer,
+    pub sphere: sphere::Sphere,
 }
 
 // Temporary values until we Render more objects
@@ -91,7 +91,7 @@ impl Render {
                 module: &shader,
                 entry_point: "vs_main", // Calling our main function in the vertex shader
                 buffers: &[
-                    celestial_body::SphereMeshVertex::desc(),
+                    sphere::SphereMeshVertex::desc(),
                     instance::InstanceRaw::desc(),
                 ],
             },
@@ -129,20 +129,7 @@ impl Render {
             },
         });
 
-        let sphere = celestial_body::Sphere::new(10, device);
-        let sphere2 = celestial_body::Sphere::new(5, device);
-        /*
-        let planet1 = celestial_body::CelestialBody::new((1.0, 1.0, 1.0).into(), &device);
-        let planet2 = celestial_body::CelestialBody::new((5.0, 5.0, 5.0).into(), &device);
-
-        let mut planets: Vec<celestial_body::CelestialBody> = Vec::new();
-        planets.push(planet1);
-        planets.push(planet2);
-
-        let mut instances: Vec<instance::Instance> = Vec::new();
-        for planet in planets {
-            instances.push(instance::Instance::new(planet.position));
-        }*/
+        let sphere = sphere::Sphere::new(10, &device);
 
         const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
@@ -182,14 +169,13 @@ impl Render {
             instances,
             instance_buffer,
             depth_texture,
-            sphere,
-            sphere2,
             camera,
             camera_controller,
             camera_bind_group_layout,
             camera_bind_group,
             camera_uniform,
             camera_buffer,
+            sphere,
         }
     }
 }

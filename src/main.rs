@@ -1,4 +1,4 @@
-use crate::celestial_body::{DrawSphere, Vertex};
+use crate::sphere::{DrawSphere, Vertex};
 use crate::state::State;
 use cgmath::*;
 use image::GenericImageView;
@@ -10,9 +10,9 @@ use winit::{
 };
 
 mod camera;
-mod celestial_body;
 mod instance;
 mod render;
+mod sphere;
 mod state;
 mod texture;
 

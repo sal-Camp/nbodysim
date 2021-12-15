@@ -2,9 +2,7 @@ use anyhow::Result;
 use cgmath::*;
 use std::ops::Range;
 use wgpu::util::DeviceExt;
-use anyhow::Result;
-use proc_macro::bridge::PanicMessage;
-use test::ShouldPanic;
+use wgpu::BindGroup;
 
 pub struct Entity {
     pub sphere: Sphere,
@@ -13,23 +11,21 @@ pub struct Entity {
 
 impl Entity {
     pub fn new(new_position: Vector3<f32>, device: &wgpu::Device) -> Self {
-
-        let sphere;
+        /*        let mut sphere;
         match Sphere::new(5, &device) {
             Ok(sp) => {
                 sphere = sp;
-            },
-            Err(e) => {
-                Panic!(PanicMessage(e));
             }
-        }
+            Err(e) => {
+                Panic!("Sphere failed to create!");
+            }
+        }*/
+
+        let mut sphere = Sphere::new(5, &device);
 
         let position = new_position;
 
-        Self {
-            sphere,
-            position,
-        }
+        Self { sphere, position }
     }
 }
 
