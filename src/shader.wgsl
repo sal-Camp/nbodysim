@@ -42,6 +42,11 @@ var<uniform> light: Light;
 [[stage(fragment)]]
 fn fs_main(in: VertexOutput) -> [[location(0)]] vec4<f32> {
 
+    //let object_color = in.color;
+    //let ambient_strength = 0.1;
+    //let ambient_color = light.color * ambient_strength;
+
+    //let result = ambient_color * object_color.xyz;
 
     return vec4<f32>(in.color, 1.0);
 }

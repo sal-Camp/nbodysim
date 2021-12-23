@@ -5,6 +5,10 @@ pub struct Instance {
     pub rotation: cgmath::Quaternion<f32>,
 }
 
+// Deriving the following traits for instances
+// allows us to store the uniform in a buffer
+// Pod ensures the struct the struct follows certain constraints such as using #[repr(C)]
+// Zeroable ensures a type can be "zeroed" out
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InstanceRaw {

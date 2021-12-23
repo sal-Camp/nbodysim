@@ -6,21 +6,32 @@ use winit::event::WindowEvent;
 use winit::window::Window;
 use winit::*;
 
+/// The struct State holds the the current state of the program.
+///
 pub struct State {
+    /// A handle to our surface and adapter(GPU)
     pub instance: wgpu::Instance,
+    /// The window we will draw to
     pub surface: wgpu::Surface,
+    /// The connection to our GPU
     pub device: wgpu::Device,
+    /// The command queue for our device
     pub queue: wgpu::Queue,
+    /// The configuration for our surface
     pub config: wgpu::SurfaceConfiguration,
+    /// The size of our surface
     pub size: winit::dpi::PhysicalSize<u32>,
+    /// Our renderer from render.rs
     pub renderer: render::Render,
 }
 
 impl State {
+    /// Initializes a new state.
+    /// Takes a winit::window parameter
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
-        // An instance is a handle to our GPU
+        // An instance is a handle to surface and adapter
         // We can target all backends (Vulkan, Metal, DX12, WebGPU)
         let instance = wgpu::Instance::new(wgpu::Backends::all());
 
@@ -37,11 +48,17 @@ impl State {
             .await
             .unwrap();
 
+        // Creating our connection to the GPU and its command queue
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
+                    // The features we want from our GPU
+                    // Currently only calling the line draw mode
                     features: wgpu::Features::POLYGON_MODE_LINE,
+                    // The limits an adapter supports.
+                    // default() will support all modern backends
                     limits: wgpu::Limits::default(),
+                    // Debug Label
                     label: None,
                 },
                 None,
@@ -49,6 +66,7 @@ impl State {
             .await
             .unwrap();
 
+        // Definding our surface's configuration
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface.get_preferred_format(&adapter).unwrap(),
@@ -56,8 +74,10 @@ impl State {
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
         };
+        // Initializing our surface using the above config
         surface.configure(&device, &config);
 
+        // Initializing our render
         let renderer = render::Render::new(&device, &config);
 
         Self {
@@ -71,11 +91,17 @@ impl State {
         }
     }
 
+    /// Recalculates window size whenever the user resizes the window.
+    /// Takes in the state itself as well as the new size of the window.
+    /// new_size is a winit::PhysicalSize struct that contains a width and height of the specificed type,
+    /// in this case a u32.
+    /// Also recreates our depth texture.
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
+            // Rebuilding our depth texture and then reconfiguring the surface
             self.renderer.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
             self.surface.configure(&self.device, &self.config);
@@ -85,10 +111,13 @@ impl State {
     // A lot of the following functions (input, update, render) can probably also
     // be refactored out to render.rs
     // Will do in future update
+
+    /// Catches window events such as keyboard and mouse clicks
     pub fn input(&mut self, event: &WindowEvent) -> bool {
         self.renderer.camera_controller.process_events(event)
     }
 
+    /// Updates our camera position and light uniform
     pub fn update(&mut self) {
         self.renderer
             .camera_controller
@@ -113,6 +142,7 @@ impl State {
         );
     }
 
+    /// Calls all of the necessary rendering commands
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         // Store a surface texture to Render to
         let output = self.surface.get_current_texture()?;

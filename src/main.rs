@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 use crate::sphere::{DrawSphere, Vertex};
 use crate::state::State;
 use cgmath::*;
@@ -29,6 +31,7 @@ fn main() {
                 ref event,
                 window_id,
             } if window_id == window.id() => {
+                // state event take priority over window events
                 if !state.input(event) {
                     match event {
                         WindowEvent::CloseRequested
